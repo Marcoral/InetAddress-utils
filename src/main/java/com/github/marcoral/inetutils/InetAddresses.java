@@ -60,7 +60,7 @@ public class InetAddresses {
         final int lastOctetIndex = addressArr.length - 1;
         for(int octetIndex = lastOctetIndex; octetIndex >= 0; --octetIndex) {
             int byteShift = ((lastOctetIndex - octetIndex) * 8);    //8 because of the length of the byte
-            result |= (addressArr[octetIndex] & 0xFF) << byteShift;
+            result |= (addressArr[octetIndex] & 0xFFL) << byteShift;
         }
         return result;
     }
