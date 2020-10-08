@@ -6,7 +6,11 @@ import java.util.Comparator;
 import java.util.Objects;
 import java.util.stream.Stream;
 
+//works with IPv4
 public class InetAddresses {
+    private static final int BYTE_BITS_SIZE = 8;
+    private static final long BYTE_MASK = (1 << BYTE_BITS_SIZE) - 1;  //Made it long to prevent overflow errors
+
     public static final Comparator<InetAddress> COMPARATOR = Comparator.comparingLong(InetAddresses::toLong);
 
     public static int compare(InetAddress first, InetAddress second) {
@@ -24,29 +28,12 @@ public class InetAddresses {
     }
 
     public static InetAddress getNext(InetAddress address) {
-        Objects.requireNonNull(address, "address");
-        byte[] addressArray = address.getAddress();
-        final int lastOctet = addressArray.length - 1;
-        try {
-            for(int octetIndex = lastOctet; octetIndex >= 0; --octetIndex) {
-                byte octetValue = addressArray[octetIndex];
-                boolean octetFinished = octetValue == (byte) -1;    //-1 means "255" (due to byte overflow)
-                if(!octetFinished) {
-                    //Modify address array and setup new address
-                    addressArray[octetIndex] = ++octetValue;
-                    reduceLowerOctets(addressArray, octetIndex);
-                    return InetAddress.getByAddress(addressArray);
-                }
-            }
-        } catch (UnknownHostException e) {
-            throw new IllegalArgumentException(e);
-        }
-        return null;
+        return getByOffset(address, 1);
     }
 
-    private static void reduceLowerOctets(byte[] addressArray, int octetIndex) {
-        while(++octetIndex < addressArray.length)
-            addressArray[octetIndex] = 0;
+    public static InetAddress getByOffset(InetAddress address, long offset) {
+        Objects.requireNonNull(address, "address");
+        return fromLong(toLong(address) + offset);
     }
 
     public static long between(InetAddress start, InetAddress end) {
@@ -59,9 +46,24 @@ public class InetAddresses {
         long result = 0;
         final int lastOctetIndex = addressArr.length - 1;
         for(int octetIndex = lastOctetIndex; octetIndex >= 0; --octetIndex) {
-            int byteShift = ((lastOctetIndex - octetIndex) * 8);    //8 because of the length of the byte
-            result |= (addressArr[octetIndex] & 0xFFL) << byteShift;
+            int byteShift = ((lastOctetIndex - octetIndex) * BYTE_BITS_SIZE);
+            result |= (addressArr[octetIndex] & BYTE_MASK) << byteShift;
         }
         return result;
+    }
+
+    public static InetAddress fromLong(long l) {
+        if(l < 0)
+            throw new IllegalArgumentException("Number must not be lower than 0!");
+        byte[] bytes = new byte[4];
+        for(int octetNum = bytes.length - 1; l != 0; --octetNum) {
+            bytes[octetNum] = (byte) (l & BYTE_MASK);
+            l >>= BYTE_BITS_SIZE;
+        }
+        try {
+            return InetAddress.getByAddress(bytes);
+        } catch (UnknownHostException e) {
+            throw new IllegalArgumentException(e);
+        }
     }
 }
